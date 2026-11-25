@@ -1,5 +1,5 @@
 // Service worker: guarda a app em cache para abrir mesmo sem internet
-const CACHE = "output-v3";
+const CACHE = "output-v4";
 const FILES = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -27,4 +27,13 @@ self.addEventListener("fetch", e => {
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }))
   );
+});
+
+// Tocar na notificação do descanso volta à app
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(cs => {
+    for (const c of cs) if ("focus" in c) return c.focus();
+    return self.clients.openWindow("./");
+  }));
 });
