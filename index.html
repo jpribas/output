@@ -81,6 +81,23 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 .done .chk{background:var(--ok);border-color:var(--ok);color:#fff}
 .warm td:first-child{color:var(--warn)}.drop td:first-child{color:var(--bad)}
 .exnote{margin:0 16px 4px;font-size:13px;color:var(--mute)}
+.thumb{width:56px;height:56px;border-radius:12px;object-fit:cover;background:#fff;border:1px solid var(--line);flex:none;cursor:pointer}
+.thumb.sm{width:40px;height:40px;border-radius:9px}
+.noimg{display:grid;place-content:center;color:var(--mute);font-size:20px;background:var(--bg)}
+.mus{display:inline-block;font:600 11px Inter;color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,transparent);border-radius:8px;padding:1px 7px;margin-top:2px}
+.exh .ttl2{flex:1;min-width:0}.exh .ttl2 h3{margin:0}
+.sets tr.next td{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.sets tr.next td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+.sets input.goal::placeholder{color:var(--acc);opacity:.85}
+.legend{margin:2px 16px 6px;font-size:12px;color:var(--mute)}.legend b{color:var(--acc);font-weight:600}
+.ex.fin .exbody{display:none}.ex.fin{opacity:.75}.ex.fin .exh h3::after{content:" ✓";color:var(--ok)}
+.prog{height:4px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}.prog i{display:block;height:100%;background:var(--acc);transition:width .3s}
+.pick button{align-items:center;gap:10px}.pick button .pn{flex:1;text-align:left}
+.rex{grid-template-columns:auto minmax(0,1fr)}.rex .ctl{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.step .lbl{font-size:12px;color:var(--mute);margin-right:2px}
+.viewer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:6px 0}
+.viewer img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:12px;background:#fff}
+.steps li{font-size:14px;margin:4px 0;color:var(--ink)}
 .addset{width:100%;min-height:44px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--mute);font-weight:600}
 .rest{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--acc);color:#fff;padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:none}
 .rest.on{display:block}
@@ -140,7 +157,7 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
   </div>
   <input type="file" id="impIn" accept=".csv,text/csv" hidden>
   <p class="small" id="impMsg"></p>
-  <p class="note">Output · versão 2 · 25/11/2026</p>
+  <p class="note">Output · versão 3 · 25/11/2026</p>
 </section>
 </div>
 
@@ -155,7 +172,7 @@ label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
 <div class="full" id="work" role="dialog" aria-modal="true" aria-labelledby="wTitle">
   <div class="whead"><div class="in">
     <button class="btn" id="wMin" aria-label="Minimizar treino">⌄</button>
-    <h2 id="wTitle">Treino<small id="wClock">0:00</small></h2>
+    <h2 id="wTitle">Treino<small><span id="wClock">0:00</span> · <span id="wCount">0/0 séries</span></small><div class="prog"><i id="wProg"></i></div></h2>
     <button class="btn pri" id="wEnd">Terminar</button>
   </div></div>
   <div class="wbody">
@@ -240,6 +257,76 @@ const e1rm=(kg,reps)=>reps>0&&kg>0?kg*(1+Math.min(reps,12)/30):0; // Epley (até
 const allEx=()=>[...new Set([...LIB,...DB.custom,...DB.workouts.flatMap(w=>(w.ex||[]).map(e=>e.name)),...DB.routines.flatMap(r=>r.items.map(i=>i.name))])].sort((a,b)=>a.localeCompare(b,"pt"));
 const sortedW=()=>DB.workouts.slice().sort((a,b)=>b.start-a.start);
 
+/* imagens: free-exercise-db (domínio público) — mapeia os nomes PT/EN para uma imagem */
+const IMG="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
+const EXMAP=[
+ [/abertura.*invertid|posterior|reverse fl|rear delt/,"Reverse_Flyes","Ombro post."],
+ [/supino inclinado|incline.*(press|bench)/,"Incline_Dumbbell_Press","Peito"],
+ [/supino sentado|press de peito|chest press|supino.*m[aá]quina/,"Leverage_Chest_Press","Peito"],
+ [/supino.*barra|bench press.*barbell|barbell bench/,"Barbell_Bench_Press_-_Medium_Grip","Peito"],
+ [/supino|bench press/,"Dumbbell_Bench_Press","Peito"],
+ [/crucifixo|voador|pec+k? ?deck|butterfly|\bfly/,"Butterfly","Peito"],
+ [/crossover/,"Cable_Crossover","Peito"],
+ [/pullover/,"Straight-Arm_Pulldown","Costas"],
+ [/pull-?up|eleva[cç][oõ]es \(pull/,"Pullups","Costas"],
+ [/puxada|pulldown|lat pull/,"Wide-Grip_Lat_Pulldown","Costas"],
+ [/iso-?lateral|iso row/,"Leverage_Iso_Row","Costas"],
+ [/remada unilateral|one-arm.*row/,"One-Arm_Dumbbell_Row","Costas"],
+ [/remada t\b|t-bar/,"Lying_T-Bar_Row","Costas"],
+ [/remada.*(barra|barbell)|remada curvada|bent over.*barbell/,"Bent_Over_Barbell_Row","Costas"],
+ [/remada.*(halter|dumbbell)/,"Bent_Over_Two-Dumbbell_Row","Costas"],
+ [/remada|row/,"Seated_Cable_Rows","Costas"],
+ [/face pull/,"Face_Pull","Ombros"],
+ [/desenvolvimento.*m[aá]quina|prensa de ombros|machine.*shoulder|shoulder press.*machine/,"Machine_Shoulder_Military_Press","Ombros"],
+ [/desenvolvimento militar|military/,"Standing_Military_Press","Ombros"],
+ [/desenvolvimento|shoulder press/,"Dumbbell_Shoulder_Press","Ombros"],
+ [/eleva[cç]([aã]o|[oõ]es) laterai?s?.*cabo|lateral.*cable/,"Cable_Seated_Lateral_Raise","Ombros"],
+ [/eleva[cç]([aã]o|[oõ]es) laterai?s?|lateral raise/,"Side_Lateral_Raise","Ombros"],
+ [/eleva[cç][aã]o frontal.*cabo|front.*cable/,"Front_Cable_Raise","Ombros"],
+ [/eleva[cç][aã]o frontal|front raise/,"Front_Dumbbell_Raise","Ombros"],
+ [/encolhimento|shrug/,"Dumbbell_Shrug","Trapézio"],
+ [/martelo|hammer/,"Hammer_Curls","Bíceps"],
+ [/rosca inclinada|incline.*curl/,"Incline_Dumbbell_Curl","Bíceps"],
+ [/rosca acima da cabe|overhead.*curl|rosca por tr/,"High_Cable_Curls","Bíceps"],
+ [/concentrad/,"Concentration_Curls","Bíceps"],
+ [/rosca.*(cabo|polia)|curl.*(cabo|cable)|cable curl/,"Standing_Biceps_Cable_Curl","Bíceps"],
+ [/rosca|curl b[ií]ceps|bicep/,"Dumbbell_Bicep_Curl","Bíceps"],
+ [/tr[ií]ceps.*corda|rope/,"Triceps_Pushdown_-_Rope_Attachment","Tríceps"],
+ [/extens[aã]o de tr[ií]ceps acima|overhead.*tricep|tr[ií]ceps franc/,"Cable_Rope_Overhead_Triceps_Extension","Tríceps"],
+ [/tr[ií]ceps testa|skull|lying tricep/,"Lying_Triceps_Press","Tríceps"],
+ [/tr[ií]ceps|pushdown/,"Triceps_Pushdown","Tríceps"],
+ [/mergulho|dips/,"Dips_-_Triceps_Version","Tríceps"],
+ [/^flex[oõ]es|push-?up/,"Pushups","Peito"],
+ [/leg press/,"Leg_Press","Quadríceps"],
+ [/hack/,"Hack_Squat","Quadríceps"],
+ [/b[uú]lgaro|split squat/,"Split_Squat_with_Dumbbells","Quadríceps"],
+ [/agachamento|squat/,"Barbell_Squat","Quadríceps"],
+ [/terra romeno|rdl|romanian|stiff/,"Stiff-Legged_Dumbbell_Deadlift","Posteriores"],
+ [/peso morto|deadlift/,"Barbell_Deadlift","Costas"],
+ [/extens[aã]o de pernas|cadeira extensora|leg extension/,"Leg_Extensions","Quadríceps"],
+ [/flex[aã]o de pernas sentad|seated leg curl/,"Seated_Leg_Curl","Posteriores"],
+ [/flex[aã]o de pernas|mesa flexora|curl de pernas|leg curl/,"Lying_Leg_Curls","Posteriores"],
+ [/(g[eé]meos|panturrilha).*sentad|seated calf/,"Seated_Calf_Raise","Gémeos"],
+ [/g[eé]meos|panturrilha|calf|pendular/,"Standing_Calf_Raises","Gémeos"],
+ [/hip thrust/,"Barbell_Hip_Thrust","Glúteos"],
+ [/afundo|lunge/,"Dumbbell_Lunges","Quadríceps"],
+ [/abdutor|abductor/,"Thigh_Abductor","Glúteos"],
+ [/prancha|plank/,"Plank","Abdominais"],
+ [/eleva[cç][aã]o de pernas|leg raise/,"Hanging_Leg_Raise","Abdominais"],
+ [/crunch|abdominal/,"Ab_Crunch_Machine","Abdominais"]];
+const exInfo=name=>{const n=String(name).toLowerCase();for(const [re,id,m] of EXMAP)if(re.test(n))return {id,m};return null};
+const thumb=(name,cls="")=>{const i=exInfo(name);return i?`<img class="thumb ${cls}" loading="lazy" alt="" src="${IMG+i.id}/0.jpg" data-view="${esc(name)}" onerror="this.outerHTML='<span class=\'thumb ${cls} noimg\'>🏋</span>'">`:`<span class="thumb ${cls} noimg">🏋</span>`};
+const musTag=name=>{const i=exInfo(name);return i?`<span class="mus">${i.m}</span>`:""};
+
+/* objetivo para hoje: progressão dupla (8–12 reps) a partir da série da última vez */
+function goalOf(p){
+  if(!p||p.warm||p.drop||!p.reps)return p?{kg:p.kg||0,reps:p.reps||0}:null;
+  const step=p.kg>=10?2.5:1;
+  if(p.reps>=12)return {kg:r1(p.kg+step),reps:8,up:true};          // chegaste ao topo → sobe o peso
+  if(p.rpe>=10&&p.reps<8)return {kg:p.kg,reps:p.reps};               // falhaste abaixo de 8 → consolida
+  return {kg:p.kg,reps:p.reps+1};                                    // +1 rep
+}
+
 /* "Anterior": as séries da última vez que fizeste este exercício */
 function lastSets(name,beforeT){
   for(const w of sortedW()){if(beforeT&&w.start>=beforeT)continue;const e=(w.ex||[]).find(x=>x.name===name);if(e&&e.sets.some(s=>s.done!==false&&(s.kg||s.reps)))return e.sets.filter(s=>s.done!==false)}
@@ -269,7 +356,7 @@ function renderHome(){
   const last=n=>{const w=sortedW().find(x=>x.title===n);return w?"Último: "+dfmt(w.start):"Ainda não feito"};
   const cur=L.get("cur");
   $("startList").innerHTML=(cur?`<button class="rcard" data-resume="1"><span class="grow"><b>Continuar: ${esc(cur.title)}</b><small>Treino em curso desde ${new Date(cur.start).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit"})}</small></span><span class="go">▶</span></button>`:"")+
-    DB.routines.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt")).map(r=>`<button class="rcard" data-start="${esc(r.id)}"><span class="grow"><b>${esc(r.name)}</b><small>${r.items.length} exercícios · ${last(r.name)}</small></span><span class="go">▶</span></button>`).join("")+
+    DB.routines.slice().sort((a,b)=>a.name.localeCompare(b.name,"pt")).map(r=>`<button class="rcard" data-start="${esc(r.id)}"><span class="grow"><b>${esc(r.name)}</b><small>${[...new Set(r.items.map(i=>(exInfo(i.name)||{}).m).filter(Boolean))].join(" · ")||r.items.length+" exercícios"}</small><small>${r.items.length} exercícios · ${last(r.name)}</small></span><span class="go">▶</span></button>`).join("")+
     `<button class="rcard alt" data-start=""><span class="grow"><b>Treino livre</b><small>Começa vazio e adiciona exercícios</small></span><span class="go">+</span></button>
      <button class="rcard alt" id="swimBtn"><span class="grow"><b>Natação</b><small>Regista distância e tempo</small></span><span class="go">≈</span></button>`+
     (DB.routines.length?"":`<p class="small">Ainda não tens rotinas. Cria-as em <b>Rotinas</b> ou importa o histórico do Hevy em <b>Mais</b>.</p>`);
@@ -301,19 +388,24 @@ function closeWork(){$("work").classList.remove("on");document.body.style.overfl
 function saveW(){L.set("cur",W)}
 function renderWork(){
   $("wTitle").firstChild.textContent=W.title;
+  const tot=W.ex.reduce((a,e)=>a+e.sets.length,0),dn=W.ex.reduce((a,e)=>a+e.sets.filter(s=>s.done).length,0);
+  $("wProg").style.width=(tot?dn/tot*100:0)+"%";$("wCount").textContent=`${dn}/${tot} séries`;
+  let nextFound=false;
   $("wEx").innerHTML=W.ex.length?W.ex.map((e,ei)=>{
-    const prev=lastSets(e.name,W.start)||[];
-    return `<div class="ex"><div class="exh"><h3>${esc(e.name)}</h3><span class="small" style="margin:0">⏱ ${dur(e.rest)}</span>
-      <button class="mini" data-up="${ei}" aria-label="Subir">↑</button><button class="mini" data-rm="${ei}" aria-label="Remover exercício">✕</button></div>${e.note?`<p class="exnote">📝 ${esc(e.note)}</p>`:""}
+    const prev=lastSets(e.name,W.start)||[],fin=e.sets.length&&e.sets.every(s=>s.done)&&!e.open;
+    return `<div class="ex ${fin?"fin":""}"><div class="exh">${thumb(e.name)}<div class="ttl2" data-tog="${ei}"><h3>${esc(e.name)}</h3>${musTag(e.name)} <span class="small" style="margin:0">⏱ ${dur(e.rest)}</span></div>
+      <button class="mini" data-up="${ei}" aria-label="Subir">↑</button><button class="mini" data-rm="${ei}" aria-label="Remover exercício">✕</button></div>
+      <div class="exbody">${e.note?`<p class="exnote">📝 ${esc(e.note)}</p>`:""}
       <table class="sets"><thead><tr><th>Série</th><th>Anterior</th><th>kg</th><th>Reps</th><th>RPE</th><th></th></tr></thead><tbody>`+
-      e.sets.map((s,si)=>{const p=prev[si];
-        return `<tr class="${s.done?"done":""} ${s.warm?"warm":""} ${s.drop?"drop":""}"><td><button class="mini" data-warm="${ei}:${si}" title="Toca: normal → aquecimento (A) → drop set (D)" style="border:0;background:none;font:inherit;color:inherit;min-height:40px">${s.warm?"A":s.drop?"D":e.sets.slice(0,si+1).filter(x=>!x.warm&&!x.drop).length}</button></td>
+      e.sets.map((s,si)=>{const p=prev[si],g=goalOf(p),isNext=!s.done&&!nextFound;if(isNext)nextFound=true;
+        return `<tr class="${s.done?"done":""} ${s.warm?"warm":""} ${s.drop?"drop":""} ${isNext?"next":""}"><td><button class="mini" data-warm="${ei}:${si}" title="Toca: normal → aquecimento (A) → drop set (D)" style="border:0;background:none;font:inherit;color:inherit;min-height:40px">${s.warm?"A":s.drop?"D":e.sets.slice(0,si+1).filter(x=>!x.warm&&!x.drop).length}</button></td>
           <td class="prev">${p?`${nf(p.kg||0)}×${p.reps||0}${p.rpe?` @${nf(p.rpe)}`:""}`:"—"}</td>
-          <td class="w"><input inputmode="decimal" data-f="kg" data-i="${ei}:${si}" value="${s.kg}" placeholder="${p&&p.kg?nf(p.kg):"kg"}" aria-label="kg série ${si+1}"></td>
-          <td class="r"><input inputmode="numeric" data-f="reps" data-i="${ei}:${si}" value="${s.reps}" placeholder="${p&&p.reps?p.reps:"reps"}" aria-label="reps série ${si+1}"></td>
+          <td class="w"><input class="${g&&!p.warm&&!p.drop?"goal":""}" inputmode="decimal" data-f="kg" data-i="${ei}:${si}" value="${s.kg}" placeholder="${g&&g.kg?nf(g.kg):"kg"}" aria-label="kg série ${si+1}"></td>
+          <td class="r"><input class="${g&&!p.warm&&!p.drop?"goal":""}" inputmode="numeric" data-f="reps" data-i="${ei}:${si}" value="${s.reps}" placeholder="${g&&g.reps?g.reps:"reps"}" aria-label="reps série ${si+1}"></td>
           <td class="e"><input inputmode="decimal" data-f="rpe" data-i="${ei}:${si}" value="${s.rpe}" placeholder="${p&&p.rpe?nf(p.rpe):"–"}" aria-label="RPE série ${si+1}"></td>
           <td><button class="chk" data-chk="${ei}:${si}" aria-label="Série feita">✓</button></td></tr>`}).join("")+
-      `</tbody></table><button class="addset" data-add="${ei}">+ Série</button></div>`}).join("")
+      `</tbody></table>${prev.length&&ei===W.ex.findIndex(x=>lastSets(x.name).length)?`<p class="legend">Em <b>azul</b>: objetivo de hoje (+1 rep; ao chegar às 12, +${prev[0]&&prev[0].kg>=10?"2,5":"1"} kg e volta às 8). Toca ✓ vazio para registar o objetivo.</p>`:""}
+      <button class="addset" data-add="${ei}">+ Série</button></div></div>`}).join("")
     :`<p class="empty">Treino vazio. Adiciona um exercício.</p>`;
 }
 const num=v=>{const n=parseFloat(String(v).replace(",","."));return isNaN(n)?"":n};
@@ -322,12 +414,14 @@ $("wEx").addEventListener("click",e=>{
   const c=e.target.closest("[data-chk]");
   if(c){const [a,b]=c.dataset.chk.split(":").map(Number),s=W.ex[a].sets[b],tr=c.closest("tr");
     if(!s.done){ // vazio → usa os valores de "Anterior" (como no Hevy)
-      const p=(lastSets(W.ex[a].name,W.start)||[])[b];
-      if(s.kg===""&&p)s.kg=p.kg||0;if(s.reps===""&&p)s.reps=p.reps||0;
+      const g=goalOf((lastSets(W.ex[a].name,W.start)||[])[b]);
+      if(s.kg===""&&g)s.kg=g.kg||0;if(s.reps===""&&g)s.reps=g.reps||0;
       if(s.reps===""){tr.querySelector('[data-f="reps"]').focus();return}
       s.done=true;if(!s.warm)startRest(W.ex[a].rest);
     }else s.done=false;
     saveW();renderWork();return}
+  const tg=e.target.closest("[data-tog]");if(tg){const ex=W.ex[+tg.dataset.tog];if(ex.sets.every(s=>s.done)){ex.open=!ex.open;saveW();renderWork()}return}
+  const vw=e.target.closest("[data-view]");if(vw){viewEx(vw.dataset.view);return}
   const ad=e.target.closest("[data-add]");if(ad){const ex=W.ex[+ad.dataset.add],l=ex.sets[ex.sets.length-1]||{};ex.sets.push({kg:l.kg||"",reps:"",rpe:"",done:false,warm:false});saveW();renderWork();return}
   const wm=e.target.closest("[data-warm]");if(wm){const [a,b]=wm.dataset.warm.split(":").map(Number),s=W.ex[a].sets[b];if(!s.warm&&!s.drop)s.warm=true;else if(s.warm){s.warm=false;s.drop=true}else s.drop=false;saveW();renderWork();return}
   const rm=e.target.closest("[data-rm]");if(rm){W.ex.splice(+rm.dataset.rm,1);saveW();renderWork();return}
@@ -349,6 +443,12 @@ $("wEnd").onclick=()=>{
     (prs.length?`<p><b>Recordes 🏆</b></p>${prs.map(p=>`<p class="small">• ${esc(p)}</p>`).join("")}`:`<p class="small">Sem recordes desta vez — o volume conta na mesma.</p>`),[["Fechar","pri"]]);
 };
 
+/* ver o exercício: 2 imagens (início/fim) + instruções curtas */
+let EXI=null;
+async function viewEx(name){const i=exInfo(name);if(!i)return;
+  info(name,`<span class="mus">${i.m}</span><div class="viewer"><img src="${IMG+i.id}/0.jpg" alt="Posição inicial"><img src="${IMG+i.id}/1.jpg" alt="Posição final"></div><p class="small">Imagem de referência (pode não ser exatamente a mesma máquina). Fonte: free-exercise-db, domínio público.</p>`,[["Fechar","pri"]]);
+}
+$("ovPick").addEventListener("click",e=>{const v=e.target.closest("img[data-view]");if(v){e.stopPropagation();viewEx(v.dataset.view)}},true);
 /* descanso */
 let restEnd=0,restDur=0,restT=null,actx=null;
 function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;g.gain.value=.15;o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+.35)}catch(e){}}
@@ -368,9 +468,9 @@ function renderPick(){const q=$("pkQ").value.trim(),ql=q.toLowerCase().normalize
   const n=s=>s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
   const list=allEx().filter(x=>!ql||n(x).includes(ql)).slice(0,80);
   $("pkList").innerHTML=(q&&!allEx().some(x=>n(x)===ql)?`<button data-pk="${esc(q)}"><span>+ Criar "${esc(q)}"</span><small>novo</small></button>`:"")+
-    list.map(x=>{const l=lastSets(x);return `<button data-pk="${esc(x)}"><span>${esc(x)}</span><small>${l?`${nf(l[0].kg||0)}×${l[0].reps}`:""}</small></button>`}).join("")}
+    list.map(x=>{const l=lastSets(x);return `<button data-pk="${esc(x)}">${thumb(x,"sm")}<span class="pn">${esc(x)}<br>${musTag(x)}</span><small>${l?`${nf(l[0].kg||0)}×${l[0].reps}`:""}</small></button>`}).join("")}
 $("pkQ").oninput=renderPick;
-$("pkList").addEventListener("click",e=>{const b=e.target.closest("[data-pk]");if(!b)return;const n=b.dataset.pk;
+$("pkList").addEventListener("click",e=>{if(e.target.closest("img[data-view]"))return;const b=e.target.closest("[data-pk]");if(!b)return;const n=b.dataset.pk;
   if(!allEx().includes(n)){DB.custom.push(n);saveR()}closeOv("ovPick");pickCb&&pickCb(n)});
 $("pkX").onclick=()=>closeOv("ovPick");
 
@@ -384,11 +484,14 @@ $("rNew").onclick=()=>openRout(null);
 function openRout(id){const r=DB.routines.find(x=>x.id===id);R=r?JSON.parse(JSON.stringify(r)):{id:uid(),name:"",items:[]};
   $("roName").value=R.name;$("roDel").hidden=!r;renderRout();$("ovRout").classList.add("on")}
 function renderRout(){
-  $("roEx").innerHTML=R.items.length?R.items.map((it,i)=>`<div class="rex"><div class="nm">${esc(it.name)}<small>descanso ${dur(it.rest)}</small></div>
-    <div class="step"><button data-s="${i}:-1" aria-label="Menos séries">−</button><span>${it.sets} séries</span><button data-s="${i}:1" aria-label="Mais séries">+</button></div>
-    <div class="step"><button data-t="${i}:-15" aria-label="Menos descanso">−</button><button data-t="${i}:15" aria-label="Mais descanso">+</button><button data-u="${i}" aria-label="Subir">↑</button><button data-x="${i}" aria-label="Remover">✕</button></div></div>`).join("")
+  $("roEx").innerHTML=R.items.length?R.items.map((it,i)=>`<div class="rex">${thumb(it.name,"sm")}<div class="nm">${esc(it.name)}<small>${musTag(it.name)}</small></div>
+    <div class="ctl">
+      <div class="step"><span class="lbl">Séries</span><button data-s="${i}:-1" aria-label="Menos séries">−</button><span>${it.sets}</span><button data-s="${i}:1" aria-label="Mais séries">+</button></div>
+      <div class="step"><span class="lbl">Descanso</span><button data-t="${i}:-15" aria-label="Menos descanso">−</button><span>${dur(it.rest)}</span><button data-t="${i}:15" aria-label="Mais descanso">+</button></div>
+      <div class="step"><button data-u="${i}" aria-label="Subir">↑</button><button data-x="${i}" aria-label="Remover">✕</button></div>
+    </div></div>`).join("")
   :`<p class="small">Sem exercícios ainda.</p>`}
-$("roEx").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+$("roEx").addEventListener("click",e=>{const v=e.target.closest("img[data-view]");if(v){viewEx(v.dataset.view);return}const b=e.target.closest("button");if(!b)return;const d=b.dataset;
   if(d.s){const [i,v]=d.s.split(":").map(Number);R.items[i].sets=Math.max(1,Math.min(10,R.items[i].sets+v))}
   if(d.t){const [i,v]=d.t.split(":").map(Number);R.items[i].rest=Math.max(15,Math.min(600,R.items[i].rest+v))}
   if(d.u){const i=+d.u;if(i>0)[R.items[i-1],R.items[i]]=[R.items[i],R.items[i-1]]}
